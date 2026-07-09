@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>机上ネームプレート ジェネレーター</title>
+<title>机ネームプレート ジェネレーター</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic:wght@400;700&family=BIZ+UDPGothic:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -147,20 +147,25 @@
   }
   .tag:last-child{ border-bottom:none; }
   .tag.empty{ }
-  .furi-box{
-    height:14mm; display:flex; align-items:flex-end; justify-content:center; width:100%;
-  }
-  .furi-text{
-    font-family:"UD デジタル 教科書体 N-R","UDDigitalNK-R","BIZ UDPGothic","BIZ UDGothic","Yu Gothic","Noto Sans JP",sans-serif;
-    color:#556; white-space:nowrap; letter-spacing:.15em; font-size:24px;
-  }
-  .kanji-box{
+  .name-box{
     flex:1; width:100%; display:flex; align-items:center; justify-content:center;
   }
-  .kanji-text{
+  .name-display{
+    display:inline-flex; align-items:flex-end; white-space:nowrap;
     font-family:"UD デジタル 教科書体 NP-B","UD デジタル 教科書体 N-B","UDDigitalNK-B","BIZ UDPGothic","BIZ UDGothic","Yu Gothic","Noto Sans JP",sans-serif;
-    font-weight:700; color:#111; white-space:nowrap; font-size:220px; line-height:1;
+    font-weight:700; color:#111; font-size:200px;
   }
+  .name-display ruby{
+    ruby-position:over;
+    -webkit-ruby-position:over;
+    ruby-align:space-around;
+  }
+  .name-display ruby rt{
+    font-family:"UD デジタル 教科書体 N-R","UDDigitalNK-R","BIZ UDPGothic","BIZ UDGothic","Yu Gothic","Noto Sans JP",sans-serif;
+    font-weight:400; color:#333;
+    font-size:.32em; letter-spacing:.08em; text-align:justify;
+  }
+  .name-display .name-gap{ display:inline-block; width:.45em; }
 
   @media print{
     body *{ visibility:hidden; }
@@ -233,10 +238,11 @@
   <!-- 3. 表示オプション -->
   <div class="panel">
     <h2><span class="num">3</span> 表示・印刷</h2>
-    <div class="opts" style="margin-bottom:14px;">
+    <div class="opts" style="margin-bottom:6px;">
       <label><input type="checkbox" id="showFurigana" checked> よみがなを表示する</label>
       <span class="hint" style="margin:0;">用紙：A3縦固定 ／ 1ページ6名（1列×6段）</span>
     </div>
+    <div class="hint" style="margin-bottom:14px;">よみがなは漢字の上に、姓・名それぞれの文字幅に均等割り付けで表示されます。「山田 太郎」「やまだ たろう」のようにスペースの数を漢字とよみがなで揃えると、姓・名ごとに正しく割り付けられます。</div>
     <div class="row" style="margin-bottom:14px;">
       <button class="gold" id="printBtn">🖨 印刷 / PDFとして保存</button>
     </div>
@@ -383,6 +389,26 @@
     renderPreview();
   }
 
+  function buildNameHTML(entry, showFuri){
+    const kanjiParts = (entry.kanji || '').trim().split(/\s+/).filter(Boolean);
+    if(kanjiParts.length === 0) return '';
+    const furiParts = (showFuri && entry.furigana) ? entry.furigana.trim().split(/\s+/).filter(Boolean) : [];
+
+    let inner;
+    if(furiParts.length > 0 && furiParts.length === kanjiParts.length){
+      // space detected on both sides: ruby per segment, evenly distributed over each segment
+      inner = kanjiParts.map((seg,i)=>
+        `<ruby>${escapeHtml(seg)}<rt>${escapeHtml(furiParts[i])}</rt></ruby>`
+      ).join('<span class="name-gap"></span>');
+    } else if(furiParts.length > 0){
+      // segment counts don't line up: fall back to one ruby group over the whole name
+      inner = `<ruby>${escapeHtml(kanjiParts.join('\u3000'))}<rt>${escapeHtml(furiParts.join(''))}</rt></ruby>`;
+    } else {
+      inner = kanjiParts.map(seg=>escapeHtml(seg)).join('<span class="name-gap"></span>');
+    }
+    return `<span class="name-display">${inner}</span>`;
+  }
+
   function buildPagesHTML(){
     const showFuri = showFuriganaBox.checked;
     const pages = [];
@@ -398,11 +424,10 @@
         if(entry && entry.kanji){
           cells.push(`
             <div class="tag">
-              <div class="furi-box">${showFuri && entry.furigana ? `<span class="furi-text">${escapeHtml(entry.furigana)}</span>` : ''}</div>
-              <div class="kanji-box"><span class="kanji-text">${escapeHtml(entry.kanji)}</span></div>
+              <div class="name-box">${buildNameHTML(entry, showFuri)}</div>
             </div>`);
         } else {
-          cells.push(`<div class="tag empty"><div class="furi-box"></div><div class="kanji-box"></div></div>`);
+          cells.push(`<div class="tag empty"><div class="name-box"></div></div>`);
         }
       }
       return `<div class="page"><div class="grid">${cells.join('')}</div></div>`;
@@ -472,12 +497,9 @@
 
   function fitAllText(root){
     root.querySelectorAll('.tag').forEach(tag=>{
-      const kanjiBox = tag.querySelector('.kanji-box');
-      const kanjiText = tag.querySelector('.kanji-text');
-      const furiBox = tag.querySelector('.furi-box');
-      const furiText = tag.querySelector('.furi-text');
-      fitText(kanjiText, kanjiBox, 220, 40);
-      fitText(furiText, furiBox, 30, 14);
+      const nameBox = tag.querySelector('.name-box');
+      const nameDisplay = tag.querySelector('.name-display');
+      fitText(nameDisplay, nameBox, 200, 32);
     });
   }
 
