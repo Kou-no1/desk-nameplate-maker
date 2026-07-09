@@ -163,7 +163,7 @@
   .name-display ruby rt{
     font-family:"UD デジタル 教科書体 N-R","UDDigitalNK-R","BIZ UDPGothic","BIZ UDGothic","Yu Gothic","Noto Sans JP",sans-serif;
     font-weight:400; color:#333;
-    font-size:.32em; letter-spacing:.08em; text-align:justify;
+    font-size:.22em; letter-spacing:.02em; text-align:justify;
   }
   .name-display .name-gap{ display:inline-block; width:.45em; }
 
@@ -484,13 +484,19 @@
   function fitText(el, container, maxSize, minSize){
     if(!el) return;
     if(!el.textContent || el.textContent.trim()===''){ return; }
+    const containerRect = container.getBoundingClientRect();
+    // small safety margin so ruby annotations never touch the edges of the row
+    const maxWidth = containerRect.width * 0.96;
+    const maxHeight = containerRect.height * 0.94;
     let size = maxSize;
     el.style.fontSize = size + 'px';
     let guard = 0;
-    while(size > minSize && guard < 200 &&
-          (el.scrollWidth > container.clientWidth || el.scrollHeight > container.clientHeight)){
-      size -= 2;
+    let elRect = el.getBoundingClientRect();
+    while(size > minSize && guard < 400 &&
+          (elRect.width > maxWidth || elRect.height > maxHeight)){
+      size -= 1;
       el.style.fontSize = size + 'px';
+      elRect = el.getBoundingClientRect();
       guard++;
     }
   }
@@ -499,7 +505,7 @@
     root.querySelectorAll('.tag').forEach(tag=>{
       const nameBox = tag.querySelector('.name-box');
       const nameDisplay = tag.querySelector('.name-display');
-      fitText(nameDisplay, nameBox, 200, 32);
+      fitText(nameDisplay, nameBox, 170, 28);
     });
   }
 
@@ -581,5 +587,6 @@
   renderPreview();
 })();
 </script>
+  <footer style="border-top: 0.5px solid #e0e0e0; padding: 1.5rem 0 1rem; text-align: center;"> <p style="font-size: 15px; color: #888; margin: 0 0 4px;">「あったらいいのに」を、作ってる。</p> <p style="font-size: 12px; color: #aaa; margin: 0;">© 2026 野村晃一 All rights reserved.</p> </footer> 
 </body>
 </html>
