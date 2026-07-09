@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>机上ネームプレート ジェネレーター</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic:wght@400;700&family=BIZ+UDPGothic:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#ffffff;
+    --panel:#ffffff;
+    --panel-line:#e2e5ea;
+    --accent:#2f6fed;
+    --accent-dim:#e8f0fe;
+    --text-main:#1f2430;
+    --text-dim:#6b7280;
+    --danger:#d64545;
+    --cut-line:#c7ccd1;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text-main);
+    font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    min-height:100vh;
+  }
+  .app{ max-width:1080px; margin:0 auto; padding:32px 20px 80px; }
+  header.hero{ margin-bottom:20px; }
+  header.hero h1{ font-size:1.4rem; font-weight:700; margin:0; letter-spacing:.01em; }
+  header.hero p{ margin:4px 0 0; color:var(--text-dim); font-size:.85rem; }
+
+  .lockline{
+    display:flex; align-items:center; gap:8px;
+    background:var(--accent-dim);
+    border:1px solid #cfe0fc;
+    color:#2b4a86;
+    font-size:.82rem;
+    padding:9px 14px;
+    border-radius:8px;
+    margin-bottom:22px;
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:12px;
+    padding:20px 22px;
+    margin-bottom:18px;
+    box-shadow:0 1px 3px rgba(16,24,40,.04);
+  }
+  .panel h2{
+    font-size:.95rem; margin:0 0 14px; color:var(--text-main);
+    display:flex; align-items:center; gap:8px; letter-spacing:.02em;
+    font-weight:700;
+  }
+  .panel h2 .num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:22px; height:22px; border-radius:50%;
+    background:var(--accent-dim); border:1px solid #cfe0fc;
+    font-size:.72rem; color:var(--accent); font-weight:700;
+  }
+
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
+  button{
+    font-family:inherit; cursor:pointer; border:none; border-radius:8px;
+    padding:9px 16px; font-size:.85rem; font-weight:700;
+    background:var(--accent); color:#fff; transition:filter .15s;
+  }
+  button:hover{ filter:brightness(1.08); }
+  button:active{ transform:scale(.98); }
+  button.ghost{
+    background:#fff; border:1px solid #d6dae1; color:var(--text-main);
+  }
+  button.ghost:hover{ background:#f5f7fa; filter:none; }
+  button.danger{ background:#fff; border:1px solid #f0c4c4; color:var(--danger); }
+  button.danger:hover{ background:#fdf2f2; filter:none; }
+  button.gold{ background:var(--accent); color:#fff; }
+  button.small{ padding:5px 10px; font-size:.75rem; border-radius:6px; }
+  button:disabled{ opacity:.35; cursor:not-allowed; }
+
+  input[type=file]{ color:var(--text-dim); font-size:.8rem; }
+  textarea{
+    width:100%; min-height:90px; resize:vertical;
+    background:#fafbfc; color:var(--text-main);
+    border:1px solid #d6dae1; border-radius:8px; padding:10px 12px;
+    font-family:inherit; font-size:.85rem;
+  }
+  .hint{ color:var(--text-dim); font-size:.78rem; margin-top:6px; line-height:1.6; }
+
+  table.roster{ width:100%; border-collapse:collapse; margin-top:14px; }
+  table.roster th{
+    text-align:left; font-size:.75rem; color:var(--text-dim); font-weight:700;
+    padding:6px 8px; border-bottom:1px solid var(--panel-line);
+  }
+  table.roster td{ padding:5px 8px; border-bottom:1px solid #f0f1f3; }
+  table.roster input[type=text]{
+    width:100%; background:#fafbfc; color:var(--text-main);
+    border:1px solid #d6dae1; border-radius:6px; padding:6px 8px; font-size:.85rem;
+    font-family:inherit;
+  }
+  table.roster td.idx{ color:var(--text-dim); font-size:.78rem; width:28px; }
+  table.roster td.ops{ white-space:nowrap; width:1%; }
+  table.roster td.ops button{ margin-right:4px; }
+
+  .toolbar-bottom{ display:flex; justify-content:space-between; align-items:center; margin-top:14px; flex-wrap:wrap; gap:10px; }
+
+  .opts{ display:flex; gap:22px; flex-wrap:wrap; align-items:center; font-size:.85rem; }
+  .opts label{ display:flex; align-items:center; gap:7px; color:var(--text-main); cursor:pointer; }
+
+  .print-note{
+    background:#fafbfc; border:1px dashed #d6dae1;
+    border-radius:8px; padding:10px 14px; font-size:.78rem; color:var(--text-dim); line-height:1.7;
+  }
+
+  /* ---------- preview ---------- */
+  #previewWrap{ margin-top:8px; }
+  .page-shell{
+    background:#f3f4f6; border:1px solid var(--panel-line); border-radius:8px; padding:14px;
+    margin-bottom:22px; overflow:hidden;
+  }
+  .page-shell .label{ font-size:.75rem; color:var(--text-dim); margin-bottom:8px; }
+  .scale-box{ overflow:hidden; }
+
+  .page{
+    width:297mm; height:420mm;
+    background:#ffffff;
+    padding:10mm;
+    transform-origin: top left;
+  }
+  .grid{
+    width:100%; height:100%;
+    display:grid;
+    grid-template-columns:1fr;
+    grid-template-rows:repeat(6, 1fr);
+  }
+  .tag{
+    position:relative;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border-bottom:1.5px dashed var(--cut-line);
+    padding:4mm;
+    overflow:hidden;
+  }
+  .tag:last-child{ border-bottom:none; }
+  .tag.empty{ }
+  .furi-box{
+    height:14mm; display:flex; align-items:flex-end; justify-content:center; width:100%;
+  }
+  .furi-text{
+    font-family:"UD デジタル 教科書体 N-R","UDDigitalNK-R","BIZ UDPGothic","BIZ UDGothic","Yu Gothic","Noto Sans JP",sans-serif;
+    color:#556; white-space:nowrap; letter-spacing:.15em; font-size:24px;
+  }
+  .kanji-box{
+    flex:1; width:100%; display:flex; align-items:center; justify-content:center;
+  }
+  .kanji-text{
+    font-family:"UD デジタル 教科書体 NP-B","UD デジタル 教科書体 N-B","UDDigitalNK-B","BIZ UDPGothic","BIZ UDGothic","Yu Gothic","Noto Sans JP",sans-serif;
+    font-weight:700; color:#111; white-space:nowrap; font-size:220px; line-height:1;
+  }
+
+  @media print{
+    body *{ visibility:hidden; }
+    body{ background:none; }
+    #printArea, #printArea *{ visibility:visible; }
+    #printArea{ position:absolute; left:0; top:0; }
+    .page-shell{ background:none; padding:0; margin:0; border-radius:0; }
+    .page-shell .label{ display:none; }
+    .scale-box{ overflow:visible; }
+    .page{ transform:none !important; page-break-after:always; }
+    .page:last-child{ page-break-after:auto; }
+    @page{ size:A3 portrait; margin:0; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="hero">
+    <h1>机上ネームプレート ジェネレーター</h1>
+    <p>A3縦・1枚6名分（1列×6段）</p>
+  </header>
+
+  <div class="lockline">🔒 入力した名簿データはこの端末（ブラウザ）内だけで処理されます。サーバーへの送信・保存は一切行われません。</div>
+
+  <!-- 1. 名簿の入力 -->
+  <div class="panel">
+    <h2><span class="num">1</span> 名簿を入力する</h2>
+
+    <div class="row" style="margin-bottom:14px;">
+      <div>
+        <div class="hint" style="margin:0 0 6px;">CSV / Excel ファイルを読み込む（1列目：漢字名［必須］／2列目：よみがな［任意］。見出し行があっても自動判定します）</div>
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+      </div>
+    </div>
+
+    <div class="row" style="margin-bottom:8px;">
+      <button class="ghost small" id="fileModeReplace">置き換えて読み込む</button>
+      <button class="ghost small" id="fileModeAppend">追加で読み込む</button>
+    </div>
+
+    <div style="margin-top:16px;">
+      <div class="hint" style="margin:0 0 6px;">またはテキストを貼り付け（1行に1名。「漢字,よみがな」または「漢字 よみがな」）</div>
+      <textarea id="pasteArea" placeholder="山田 太郎,やまだ たろう&#10;佐藤 花子&#10;..."></textarea>
+      <div class="row" style="margin-top:8px;">
+        <button class="small" id="pasteAppend">貼り付けた内容を追加</button>
+        <button class="ghost small" id="pasteReplace">貼り付けた内容で置き換え</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 名簿の確認・編集 -->
+  <div class="panel">
+    <h2><span class="num">2</span> 名簿を確認・編集する</h2>
+    <table class="roster" id="rosterTable">
+      <thead>
+        <tr><th style="width:28px;">#</th><th>漢字名（必須）</th><th>よみがな（任意）</th><th></th></tr>
+      </thead>
+      <tbody id="rosterBody"></tbody>
+    </table>
+    <div class="toolbar-bottom">
+      <div class="row">
+        <button class="small" id="addRow">＋ 1名 追加</button>
+        <button class="ghost small" id="fillEmptyToSix">6の倍数になるよう空欄を追加</button>
+      </div>
+      <button class="danger small" id="clearAll">名簿をすべてクリア</button>
+    </div>
+  </div>
+
+  <!-- 3. 表示オプション -->
+  <div class="panel">
+    <h2><span class="num">3</span> 表示・印刷</h2>
+    <div class="opts" style="margin-bottom:14px;">
+      <label><input type="checkbox" id="showFurigana" checked> よみがなを表示する</label>
+      <span class="hint" style="margin:0;">用紙：A3縦固定 ／ 1ページ6名（1列×6段）</span>
+    </div>
+    <div class="row" style="margin-bottom:14px;">
+      <button class="gold" id="printBtn">🖨 印刷 / PDFとして保存</button>
+    </div>
+    <div class="print-note">
+      印刷ダイアログでは「用紙サイズ：A3」「印刷の向き：縦」「余白：なし」「拡大縮小：100%（実際のサイズ）」を選択してください。PDFとして保存する場合は送信先を「PDFに保存」にしてください。
+    </div>
+  </div>
+
+  <!-- プレビュー -->
+  <div class="panel">
+    <h2><span class="num">4</span> プレビュー</h2>
+    <div id="previewWrap"></div>
+  </div>
+
+</div>
+
+<div id="printArea"></div>
+
+<script>
+(function(){
+  const STORAGE_MAX_PREVIEW_WIDTH = 640; // px, on-screen preview scale target
+
+  let roster = [
+    {kanji:'', furigana:''},
+    {kanji:'', furigana:''},
+    {kanji:'', furigana:''},
+    {kanji:'', furigana:''},
+    {kanji:'', furigana:''},
+    {kanji:'', furigana:''}
+  ];
+
+  const rosterBody = document.getElementById('rosterBody');
+  const previewWrap = document.getElementById('previewWrap');
+  const printArea = document.getElementById('printArea');
+  const showFuriganaBox = document.getElementById('showFurigana');
+
+  function isHeaderRow(cols){
+    const joined = cols.join('').toLowerCase();
+    return joined.includes('漢字') || joined.includes('よみがな') || joined.includes('ふりがな') ||
+           joined.includes('name') || joined.includes('氏名') || joined.includes('名前');
+  }
+
+  function parseCSVText(text){
+    const lines = text.split(/\r\n|\n|\r/).map(l=>l.trim()).filter(l=>l.length>0);
+    const rows = lines.map(line=>{
+      // simple CSV split honoring basic quotes
+      const result = [];
+      let cur='', inQuotes=false;
+      for(let i=0;i<line.length;i++){
+        const ch = line[i];
+        if(ch === '"'){ inQuotes = !inQuotes; continue; }
+        if((ch===',') && !inQuotes){ result.push(cur); cur=''; continue; }
+        cur += ch;
+      }
+      result.push(cur);
+      return result.map(c=>c.trim());
+    });
+    return rowsToEntries(rows);
+  }
+
+  function rowsToEntries(rows){
+    if(rows.length===0) return [];
+    let data = rows;
+    if(isHeaderRow(rows[0])){ data = rows.slice(1); }
+    return data
+      .filter(cols => cols[0] && cols[0].length>0)
+      .map(cols => ({ kanji: cols[0] || '', furigana: cols[1] || '' }));
+  }
+
+  function parsePasteText(text){
+    const lines = text.split(/\r\n|\n|\r/).map(l=>l.trim()).filter(l=>l.length>0);
+    const rows = lines.map(line=>{
+      if(line.includes(',')) return line.split(',').map(s=>s.trim());
+      // fallback: split on the last run of whitespace (name / furigana)
+      const parts = line.split(/\s+/);
+      if(parts.length>=2){
+        return [parts.slice(0,parts.length-1).join(' '), parts[parts.length-1]];
+      }
+      return [line];
+    });
+    return rowsToEntries(rows);
+  }
+
+  function setRoster(entries, mode){
+    if(mode==='replace'){
+      roster = entries.length ? entries : [{kanji:'',furigana:''}];
+    } else {
+      roster = roster.concat(entries);
+    }
+    renderRosterTable();
+    renderPreview();
+  }
+
+  function renderRosterTable(){
+    rosterBody.innerHTML = '';
+    roster.forEach((entry, idx)=>{
+      const tr = document.createElement('tr');
+
+      const tdIdx = document.createElement('td');
+      tdIdx.className='idx';
+      tdIdx.textContent = idx+1;
+      tr.appendChild(tdIdx);
+
+      const tdKanji = document.createElement('td');
+      const kanjiInput = document.createElement('input');
+      kanjiInput.type='text'; kanjiInput.value=entry.kanji;
+      kanjiInput.placeholder='例：山田 太郎';
+      kanjiInput.addEventListener('input', e=>{ roster[idx].kanji = e.target.value; renderPreview(); });
+      tdKanji.appendChild(kanjiInput);
+      tr.appendChild(tdKanji);
+
+      const tdFuri = document.createElement('td');
+      const furiInput = document.createElement('input');
+      furiInput.type='text'; furiInput.value=entry.furigana;
+      furiInput.placeholder='例：やまだ たろう';
+      furiInput.addEventListener('input', e=>{ roster[idx].furigana = e.target.value; renderPreview(); });
+      tdFuri.appendChild(furiInput);
+      tr.appendChild(tdFuri);
+
+      const tdOps = document.createElement('td');
+      tdOps.className='ops';
+      const upBtn = document.createElement('button');
+      upBtn.className='ghost small'; upBtn.textContent='↑';
+      upBtn.disabled = idx===0;
+      upBtn.addEventListener('click', ()=>{ swapRows(idx, idx-1); });
+      const downBtn = document.createElement('button');
+      downBtn.className='ghost small'; downBtn.textContent='↓';
+      downBtn.disabled = idx===roster.length-1;
+      downBtn.addEventListener('click', ()=>{ swapRows(idx, idx+1); });
+      const delBtn = document.createElement('button');
+      delBtn.className='danger small'; delBtn.textContent='削除';
+      delBtn.addEventListener('click', ()=>{ roster.splice(idx,1); renderRosterTable(); renderPreview(); });
+      tdOps.appendChild(upBtn); tdOps.appendChild(downBtn); tdOps.appendChild(delBtn);
+      tr.appendChild(tdOps);
+
+      rosterBody.appendChild(tr);
+    });
+  }
+
+  function swapRows(a,b){
+    if(b<0 || b>=roster.length) return;
+    [roster[a], roster[b]] = [roster[b], roster[a]];
+    renderRosterTable();
+    renderPreview();
+  }
+
+  function buildPagesHTML(){
+    const showFuri = showFuriganaBox.checked;
+    const pages = [];
+    for(let i=0;i<roster.length;i+=6){
+      pages.push(roster.slice(i, i+6));
+    }
+    if(pages.length===0) pages.push([]);
+
+    return pages.map(pageEntries=>{
+      const cells = [];
+      for(let i=0;i<6;i++){
+        const entry = pageEntries[i];
+        if(entry && entry.kanji){
+          cells.push(`
+            <div class="tag">
+              <div class="furi-box">${showFuri && entry.furigana ? `<span class="furi-text">${escapeHtml(entry.furigana)}</span>` : ''}</div>
+              <div class="kanji-box"><span class="kanji-text">${escapeHtml(entry.kanji)}</span></div>
+            </div>`);
+        } else {
+          cells.push(`<div class="tag empty"><div class="furi-box"></div><div class="kanji-box"></div></div>`);
+        }
+      }
+      return `<div class="page"><div class="grid">${cells.join('')}</div></div>`;
+    }).join('');
+  }
+
+  function escapeHtml(str){
+    return str.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function renderPreview(){
+    const pagesHTML = buildPagesHTML();
+    printArea.innerHTML = pagesHTML;
+
+    previewWrap.innerHTML = '';
+    const pageEls = printArea.querySelectorAll('.page');
+    pageEls.forEach((pageEl, idx)=>{
+      const shell = document.createElement('div');
+      shell.className = 'page-shell';
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = `ページ ${idx+1} / ${pageEls.length}`;
+      const scaleBox = document.createElement('div');
+      scaleBox.className = 'scale-box';
+
+      const clone = pageEl.cloneNode(true);
+      scaleBox.appendChild(clone);
+      shell.appendChild(label);
+      shell.appendChild(scaleBox);
+      previewWrap.appendChild(shell);
+    });
+
+    requestAnimationFrame(()=>{
+      fitAllText(printArea);
+      scalePreviewPages();
+    });
+  }
+
+  function scalePreviewPages(){
+    const shells = previewWrap.querySelectorAll('.page-shell');
+    shells.forEach(shell=>{
+      const scaleBox = shell.querySelector('.scale-box');
+      const page = scaleBox.querySelector('.page');
+      const naturalWidth = page.offsetWidth;
+      const naturalHeight = page.offsetHeight;
+      const targetWidth = Math.min(STORAGE_MAX_PREVIEW_WIDTH, shell.clientWidth || STORAGE_MAX_PREVIEW_WIDTH);
+      const scale = targetWidth / naturalWidth;
+      page.style.transform = `scale(${scale})`;
+      scaleBox.style.height = (naturalHeight * scale) + 'px';
+      scaleBox.style.width = (naturalWidth * scale) + 'px';
+    });
+  }
+
+  function fitText(el, container, maxSize, minSize){
+    if(!el) return;
+    if(!el.textContent || el.textContent.trim()===''){ return; }
+    let size = maxSize;
+    el.style.fontSize = size + 'px';
+    let guard = 0;
+    while(size > minSize && guard < 200 &&
+          (el.scrollWidth > container.clientWidth || el.scrollHeight > container.clientHeight)){
+      size -= 2;
+      el.style.fontSize = size + 'px';
+      guard++;
+    }
+  }
+
+  function fitAllText(root){
+    root.querySelectorAll('.tag').forEach(tag=>{
+      const kanjiBox = tag.querySelector('.kanji-box');
+      const kanjiText = tag.querySelector('.kanji-text');
+      const furiBox = tag.querySelector('.furi-box');
+      const furiText = tag.querySelector('.furi-text');
+      fitText(kanjiText, kanjiBox, 220, 40);
+      fitText(furiText, furiBox, 30, 14);
+    });
+  }
+
+  // ---- events ----
+  document.getElementById('addRow').addEventListener('click', ()=>{
+    roster.push({kanji:'', furigana:''});
+    renderRosterTable();
+    renderPreview();
+  });
+
+  document.getElementById('fillEmptyToSix').addEventListener('click', ()=>{
+    const remainder = roster.length % 6;
+    if(remainder===0){ return; }
+    const toAdd = 6 - remainder;
+    for(let i=0;i<toAdd;i++){ roster.push({kanji:'', furigana:''}); }
+    renderRosterTable();
+    renderPreview();
+  });
+
+  document.getElementById('clearAll').addEventListener('click', ()=>{
+    if(!confirm('名簿をすべて削除します。よろしいですか？')) return;
+    roster = [{kanji:'',furigana:''}];
+    renderRosterTable();
+    renderPreview();
+  });
+
+  document.getElementById('pasteAppend').addEventListener('click', ()=>{
+    const entries = parsePasteText(document.getElementById('pasteArea').value);
+    if(entries.length===0){ alert('読み取れる名前がありませんでした。'); return; }
+    setRoster(entries, 'append');
+  });
+  document.getElementById('pasteReplace').addEventListener('click', ()=>{
+    const entries = parsePasteText(document.getElementById('pasteArea').value);
+    if(entries.length===0){ alert('読み取れる名前がありませんでした。'); return; }
+    if(!confirm('現在の名簿を置き換えます。よろしいですか？')) return;
+    setRoster(entries, 'replace');
+  });
+
+  let pendingFileEntries = null;
+  document.getElementById('fileInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    const reader = new FileReader();
+    reader.onload = (evt)=>{
+      let entries = [];
+      if(ext === 'csv'){
+        entries = parseCSVText(evt.target.result);
+      } else {
+        const data = new Uint8Array(evt.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+        entries = rowsToEntries(rows.map(r=>r.map(c=>String(c))));
+      }
+      if(entries.length===0){ alert('ファイルから名前を読み取れませんでした。1列目に漢字名、2列目によみがな（任意）が入っているか確認してください。'); return; }
+      pendingFileEntries = entries;
+      alert(entries.length + '名分のデータを読み込みました。「置き換えて読み込む」または「追加で読み込む」を押して反映してください。');
+    };
+    if(ext==='csv'){ reader.readAsText(file, 'UTF-8'); }
+    else { reader.readAsArrayBuffer(file); }
+  });
+  document.getElementById('fileModeReplace').addEventListener('click', ()=>{
+    if(!pendingFileEntries){ alert('先にファイルを選択してください。'); return; }
+    if(!confirm('現在の名簿を置き換えます。よろしいですか？')) return;
+    setRoster(pendingFileEntries, 'replace');
+  });
+  document.getElementById('fileModeAppend').addEventListener('click', ()=>{
+    if(!pendingFileEntries){ alert('先にファイルを選択してください。'); return; }
+    setRoster(pendingFileEntries, 'append');
+  });
+
+  showFuriganaBox.addEventListener('change', renderPreview);
+  document.getElementById('printBtn').addEventListener('click', ()=>{ window.print(); });
+  window.addEventListener('resize', ()=>{ scalePreviewPages(); });
+
+  // init
+  renderRosterTable();
+  renderPreview();
+})();
+</script>
+</body>
+</html>
